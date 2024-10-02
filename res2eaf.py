@@ -221,26 +221,28 @@ with open(args.lattice, 'r', encoding='utf-8') as lat_file:
             # subsequent blocks/segments those beg < farthest_segment_end
             # read so far are overlaping
             if seg['beg'] < last_end:
+
                 if not overlap:
                     # new overlap interval
                     overlap = True
-                    (overlap_beg, overlap_end)  = (seg['beg'], seg['end'])
+                    overlap_beg  = seg['beg']
 
                 # There may be gaps between overlaping segments;
                 # (separate overlaping intervals then)
                 # TODO: maybe increase gap size (larger and less intermittent overlaps)
-                if abs(seg['beg'] - overlap_end) > 200:
+                elif abs(seg['beg'] - overlap_end) > 200:
                     overlaps.append((overlap_beg, overlap_end))
                     if args.debug:
                         print("      * distinct overlap {0} - {1}"
                               .format(overlap_beg, overlap_end))
-                    (overlap_beg, overlap_end)  = (seg['beg'], seg['end'])
+                    overlap_beg  = seg['beg']
+
+                overlap_end = seg['end']
 
                 if args.verbose:
                     print("INFO: overlaping segment {0:.2f} - {1:.2f}"
                         .format(seg['beg']/1000, seg['end']/1000))
 
-                overlap_end = seg['end']
 
             else:
                 last_end = seg['end']
@@ -507,6 +509,9 @@ def last_setup(eaf):
     if args.overlap_tier:
         eaf.add_tier('overlap')
         for (beg, end) in overlaps:
+            if args.debug:
+                print("Adding interval {0} - {1} to overlap tier"
+                      .format(beg, end))
             eaf.add_annotation('overlap', beg, end)
 
     # TODO: CV for noise tier
