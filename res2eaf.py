@@ -49,7 +49,7 @@ group.add_argument('--skip-overlaping', action='store_true',
                    help='Skip/omit overlaping segments from all tiers')
 
 group = parser.add_argument_group('Joining segments')
-group.add_argument('-j', '--join-segments', action='store_true', 
+group.add_argument('-j', '--join-segments', action='store_true',
                    help='join consequitive segments. Note: segments up to '
                    '--max-length ar joined if they are separated by gaps '
                    '<= --max-gap and then, if --allow-overlength, up to '
@@ -65,7 +65,7 @@ group.add_argument('--max-length', metavar='LEN_MS', required=False,
                    help='max length (in ms) of the combined segment if '
                    'overlength is not allowed (default: %(default)d ms)')
 
-group.add_argument('--allow-overlength', action='store_true', 
+group.add_argument('--allow-overlength', action='store_true',
                    help='Allow combining segments over --max-length up to '
                    '--ultimate-length')
 
@@ -80,14 +80,14 @@ group.add_argument('--max-overlength-gap', metavar='INT_MS', required=False,
                    '--max-length to be joined (default: %(default)d ms)')
 
 group = parser.add_argument_group('Text processing')
-group.add_argument('--strip-punctuation', action='store_true', 
+group.add_argument('--strip-punctuation', action='store_true',
                    help='remove punctuation characters from segments text')
 
 group = parser.add_argument_group('EAF creation')
 group.add_argument('--author',  required=False,
                    default='{0}:{1}'.format(Path(__file__).stem, __version__),
                    help='Set author of the EAF (default: %(default)s)')
-                   
+
 group.add_argument('--link-media', metavar='F_WAV', required=False,
                    help='media/wav file to link to in EAF')
 group.add_argument('--orig-media', required=False,
@@ -97,7 +97,7 @@ group.add_argument('--orig-media', required=False,
 group.add_argument('--annotator', help='Add annotator to all tiers')
 group.add_argument('--prefill-meta', metavar='INFO',
                    help='Prefill all tiers with meta info in participant field')
-group.add_argument('--overlap-tier', action='store_true', 
+group.add_argument('--overlap-tier', action='store_true',
                    help='Add overlap tier with overlaping speech intervals')
 
 
@@ -115,7 +115,7 @@ if (args.webvtt and not Path(args.webvtt).is_file()):
     print("The specified webvtt file '{0}' does not exist"
           .format(args.webvtt))
     sys.exit(1)
-    
+
 
 def to_ms(ts):
      return int(float(ts) * 1000)
@@ -129,9 +129,9 @@ def ms_to_ts(ms):
         return dt.strftime('%H:%M:%S.%f')[:-3]
     else:
         return dt.strftime('%M:%S.%f')[:-3]
-    
 
-    
+
+
 speech = {}
 speech_blocks = {}
 overlaps = []
@@ -149,22 +149,22 @@ with open(args.lattice, 'r', encoding='utf-8') as lat_file:
         r"(?P<val>.+)$")
 
     sid = None
-    
+
     last_blk = 0
     last_sid = ''
     last_end = 0
     lineno = 0
     overlap = False
-        
+
     for line in lat_file:
         lineno += 1
-        
+
         if line.strip() == '':
             continue
 
         elif line.startswith('#'):
             if (m := header.match(line)):
-                
+
                 # New speach block
                 sid  = m.group('sid')
                 blk = int(m.group('blk'))
@@ -173,32 +173,37 @@ with open(args.lattice, 'r', encoding='utf-8') as lat_file:
                 if sid == 'TYLA':
                     last_sid, last_blk = sid, blk
                     continue
-                
+
                 if sid not in speech:
                     speech[sid] = []
 
                 speech_blocks[blk] = { 'sid': sid, 'segs': []}
-                
+
 
                 if (blk != last_blk + 1):
                     print("WARN: non-consequitive speech block number\n"
                           "    prev. sid: {0}, seq: {1}\n"
-                          "    curr. sid: {2}, seq: {3}".format(last_sid, last_blk, sid, blk))
+                          "    curr. sid: {2}, seq: {3}"
+                          .format(last_sid, last_blk, sid, blk))
 
                 if (last_sid and sid == last_sid):
                     print("WARN: same speaker '{0}' "
-                          "consequitive blocks {1} and {2}".format(last_blk, blk))
-                    
+                          "consequitive blocks {1} and {2}"
+                          .format(last_blk, blk))
+
                 last_sid, last_blk = sid, blk
 
             else:
-                print("WARN: Line:{0} '{1}' doesn't match header format".format(lineno, line))
-        
+                print("WARN: Line:{0} '{1}' doesn't match header format"
+                      .format(lineno, line))
+
         elif (m := segment.match(line)):
-            assert (sid is not None) # should never happen: speech line without (prior) header
+            # should never happen: speech line without (prior) header
+            assert (sid is not None)
 
             # Skip fix.lattice.time inserted silence (TYLA) blocks/segments
-            # they are empty anyway, but https://github.com/airenas/list/issues/1
+            # they are empty anyway, but:
+            # https://github.com/airenas/list/issues/1
             if sid == 'TYLA':
                 continue
 
@@ -212,7 +217,7 @@ with open(args.lattice, 'r', encoding='utf-8') as lat_file:
             # Skip silence/noise segments
             if seg['val'].strip() == '<eps>':
                 continue
-                
+
             speech[sid].append(seg)
             speech_blocks[blk]['segs'].append(list(seg.values()))
 
@@ -229,7 +234,8 @@ with open(args.lattice, 'r', encoding='utf-8') as lat_file:
 
                 # There may be gaps between overlaping segments;
                 # (separate overlaping intervals then)
-                # TODO: maybe increase gap size (larger and less intermittent overlaps)
+                # TODO: maybe increase gap size (larger and less intermittent
+                # overlaps)
                 elif abs(seg['beg'] - overlap_end) > 200:
                     overlaps.append((overlap_beg, overlap_end))
                     if args.debug:
@@ -256,10 +262,52 @@ with open(args.lattice, 'r', encoding='utf-8') as lat_file:
                               .format(overlap_beg, overlap_end))
 
         else:
-            print("WARN: Line '{0}' doesn't match segment format".format(lineno, line))
+            print("WARN: Line '{0}' doesn't match segment format"
+                  .format(lineno, line))
 
 
-    
+if args.debug:
+    print("Overlaps ({0}) before cleanup:".format(len(overlaps)))
+    for overlap in overlaps:
+        print(overlap)
+    print()
+
+# fix overlaps (remove inclusions, merge overlaping)
+i = 0; _len = len(overlaps)
+while i < _len:
+    (beg1, end1) = overlaps[i]
+
+    j = 0
+    while j < _len:
+        (beg2, end2) = overlaps[j]
+        if i != j:
+            if (beg1 >= beg2) and (end1 <= end2):
+                if args.debug:
+                    print("inclusive overlap: {0} in {1}; removing {0}"
+                          .format(overlaps[i], overlaps[j]))
+                overlaps.pop(i)
+                i -= 1; _len -= 1
+                break
+
+            elif (beg1 >= beg2) and (beg1 <= end2) and (end1 > end2):
+                if args.debug:
+                    print("extending overlap: {0} by {1}; "
+                          "removing {1}, extending: {0} -> {2}"
+                          .format(overlaps[j], overlaps[i], (beg2, end1)))
+                overlaps[j] = (beg2, end1)
+                overlaps.pop(i)
+                i -= 1; _len -= 1
+                break
+        j += 1
+    i += 1
+
+if args.debug:
+    print("\nOverlaps ({0}) after cleanup:".format(len(overlaps)))
+    for overlap in overlaps:
+        print(overlap)
+    print()
+
+
 class Stats:
     segs = {}
     gaps = {}
@@ -279,7 +327,7 @@ class Stats:
                 'single_cnt': 0,
                 'joined_cnt': 0,
                 'combof_cnt': 0,
-                
+
                 'min_len': 0,
                 'max_len': 0,
                 'avg_len': 0,
@@ -301,21 +349,21 @@ class Stats:
         cls.segs[tier]['data'].append(segments)
 
 
-     
+
     @classmethod
     def collect(cls):
-        
+
         for tier in cls.segs:
             seg_lens = []
             gap_lens = cls.gaps[tier]['data']
-            
+
             for segs in cls.segs[tier]['data']:
                 if len(segs) == 1:
                     cls.segs[tier]['single_cnt'] += 1
                 elif len(segs) > 1:
                     cls.segs[tier]['joined_cnt'] += 1
                     cls.segs[tier]['combof_cnt'] += len(segs)
-                
+
                 beg = segs[0][0]  # first beg
                 end = segs[-1][1] # last end
                 seg_lens.append(end - beg)
@@ -327,7 +375,7 @@ class Stats:
                     if gap_len > 0:
                         gap_lens.append(gap_len)
 
-            if seg_lens:    
+            if seg_lens:
                 cls.segs[tier]['min_len'] = min(seg_lens)
                 cls.segs[tier]['max_len'] = max(seg_lens)
                 cls.segs[tier]['avg_len'] = stats.mean(seg_lens)
@@ -351,10 +399,10 @@ class Stats:
             cls.total_seg_joined += cls.segs[tier]['joined_cnt']
             cls.total_seg_combof += cls.segs[tier]['combof_cnt']
 
-                
-    
+
+
 class Segment:
-            
+
     def __init__(self, beg, end, text, sid=None):
         self.beg = beg
         self.text =  ''
@@ -369,7 +417,7 @@ class Segment:
             self.max_length = args.max_length
         else:
             self.max_length = args.ultimate_length
-        
+
         self.append(beg, end, text)
 
 
@@ -386,7 +434,7 @@ class Segment:
 
         # note: preserving original text/value
         self.segments.append((beg, end, text))
-        
+
         self.end = end
         self.length = (self.end - self.beg)
 
@@ -396,19 +444,19 @@ class Segment:
 
 
         text = self.process(text)
-        
+
         if self.text == '':
             self.text =  text
         elif text:
             self.text += ' ' + text
-        
+
 
     def can_join(self, beg, end, text, sid=None):
 
         consequent = ((beg - self.end) >= 0)
         combined_length = (end - self.beg)
         overlength = combined_length > args.max_length
-        
+
         if not overlength:
             right_gap = ((beg - self.end) <= args.max_gap)
         else:
@@ -420,7 +468,7 @@ class Segment:
             same_tier = (self.tier == self.get_tier_name(beg, end))
 
 
-                        
+
         if (args.join_segments and
             same_tier and consequent and right_gap and
             combined_length > self.max_length):
@@ -429,7 +477,7 @@ class Segment:
                       "but combined length {2:.2f} > {3:.2f} s"
                       .format(beg/1000, end/1000,
                               combined_length/1000, self.max_length/1000))
-            
+
         return (args.join_segments and
                 same_tier and consequent and right_gap and
                 combined_length <= self.max_length)
@@ -457,7 +505,7 @@ class Segment:
 
         return text
 
-    
+
     def get_tier_name(self, beg, end):
         for blk in speech_blocks:
             # the first and the last segment of the speech block
@@ -465,7 +513,7 @@ class Segment:
             (_, _, b_end, _) = speech_blocks[blk]['segs'][-1]
             if beg >= b_beg and end <= b_end:
                 return speech_blocks[blk]['sid']
-             
+
         raise Exception("Can't find tier for time interval: {0} to {1}"
                         .format(beg, end))
 
@@ -482,13 +530,13 @@ class Segment:
 
 def create_eaf():
     eaf = Eaf(author=args.author)
-    
+
     if args.link_media:
         if args.orig_media:
             eaf.add_linked_file(args.link_media, ex_from=args.orig_media)
         else:
             eaf.add_linked_file(args.link_media)
-        
+
 
     for sid in speech:
         eaf.add_tier(sid)
@@ -505,7 +553,7 @@ def last_setup(eaf):
 
     # Eaf() adds it
     eaf.remove_tier('default')
-    
+
     if args.overlap_tier:
         eaf.add_tier('overlap')
         for (beg, end) in overlaps:
@@ -516,15 +564,15 @@ def last_setup(eaf):
 
     # TODO: CV for noise tier
     eaf.add_tier('noise')
-    
+
 
 
 def convert_lattice_to_eaf():
 
     eaf = create_eaf()
-    
+
     segment = None
-    
+
     for (sid, segs) in [(blk['sid'], blk['segs'])
                         for blk in speech_blocks.values()]:
         for (hyp, beg, end, val) in segs:
@@ -538,36 +586,38 @@ def convert_lattice_to_eaf():
                         print("INFO: {0} skipping overlaping segment "
                               "{1} - {2}".format(sid, beg, end))
                     continue
-                
-                        
+
+
             if segment is None:
                 segment = Segment(*seg, sid)
             elif segment.can_join(*seg, sid):
                 segment.append(*seg)
             else:
                 # Segment can no longer be joined; add it to eaf
-                eaf.add_annotation(segment.tier, segment.beg, segment.end, segment.text)
+                eaf.add_annotation(segment.tier, segment.beg, segment.end,
+                                   segment.text)
                 segment.added()
-                
+
                 # New segment
                 segment = Segment(*seg, sid)
 
         # Last segment
         if segment:
-            eaf.add_annotation(segment.tier, segment.beg, segment.end, segment.text)
+            eaf.add_annotation(segment.tier, segment.beg, segment.end,
+                               segment.text)
             segment.added()
             segment = None
 
-    last_setup(eaf)    
+    last_setup(eaf)
     eaf.to_file(args.outfile)
-        
+
 
 def convert_webvtt_to_eaf(filename):
 
     eaf = create_eaf()
 
     segment = None
-    
+
     for caption in webvtt.read(filename):
         beg = (caption.start_time.in_seconds() *
             1000 + caption.start_time.milliseconds)
@@ -578,9 +628,9 @@ def convert_webvtt_to_eaf(filename):
         text = caption.text
 
         seg = (beg, end, text)
-        
-        # XXX: webvtt segments are already joined, so skipping whole chunk due to
-        # overlap interval hit may be overkill
+
+        # XXX: webvtt segments are already joined, so skipping whole chunk due
+        # to overlap interval hit may be overkill
         if args.skip_overlaping:
             if Segment.overlaping(beg, end):
                 # TODO: stats of overlaping segments (count, length)
@@ -588,7 +638,7 @@ def convert_webvtt_to_eaf(filename):
                     print("INFO: {0} skipping overlaping segment "
                           "{1} - {2}".format(sid, beg, end))
                 continue
-            
+
 
         if segment is None:
             segment = Segment(*seg)
@@ -596,9 +646,10 @@ def convert_webvtt_to_eaf(filename):
             segment.append(*seg)
         else:
             # Segment can no longer be joined; add it to eaf
-            eaf.add_annotation(segment.tier, segment.beg, segment.end, segment.text)
+            eaf.add_annotation(segment.tier, segment.beg, segment.end,
+                               segment.text)
             segment.added()
-                
+
             # New segment
             segment = Segment(*seg)
 
@@ -610,24 +661,24 @@ def convert_webvtt_to_eaf(filename):
 
     last_setup(eaf)
     eaf.to_file(args.outfile)
-    
+
 
 if args.webvtt:
     convert_webvtt_to_eaf(args.webvtt)
 else:
     convert_lattice_to_eaf()
 
-    
+
 def quarts_in_seconds(quarts):
     """ Returns length quartiles in seconds """
-    
+
     if not quarts:
-        # (reasonable) data is not available 
+        # (reasonable) data is not available
         return ['-'] * 3
     else:
         return list(map(lambda q: q/1000, quarts))
-    
-    
+
+
 
 Stats.collect()
 
