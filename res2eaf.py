@@ -17,7 +17,7 @@ from datetime import timedelta, datetime, timezone
 __author__ = "Laimonas Vėbra"
 __copyright__ = "Copyright 2024"
 __license__ = "BSD"
-__version__ = "0.1a"
+__version__ = "0.1b"
 
 
 parser = argparse.ArgumentParser(
@@ -99,8 +99,11 @@ group.add_argument('--prefill-meta', metavar='INFO',
                    help='Prefill all tiers with meta info in participant field')
 group.add_argument('--overlap-tier', action='store_true',
                    help='Add overlap tier with overlaping speech intervals')
-
-
+group.add_argument('--noise-tier', action='store_true',
+                   help='Add noise tier')
+group.add_argument('--noise-tier-cv', metavar='F_CSV', default='./noise_cv.csv',
+                   help='CV (Controlled Vocabulary) file (tab(s) separated) '
+                   'for noise tier')
 
 
 args = parser.parse_args()
@@ -500,9 +503,6 @@ class Segment:
         # webvtt segments may have newlines?
         text = text.replace("\n", ' ').replace("\r", '')
 
-        # if (m := re.match(r'^\D*?(?P<num>\d+)\D*$', val)):
-        #     print(text)
-
         return text
 
 
@@ -527,9 +527,65 @@ class Segment:
                             self.length, self.text))
 
 
+def read_noise_cv(noise_cv_path):
+    noise_cv = []
+    with open(noise_cv_path, encoding='utf-8') as f:
+        header = f.readline()
+        for line in f:
+            if line.strip().startswith('#'):
+                continue
+            fields = re.split("\t+", line)
+            assert len(fields) >= 2
+
+            noise_cv.append({
+                "name": fields[0].strip(),
+                "desc": fields[1].strip()
+            })
+    return noise_cv
+
+
+def add_overlap_tier(eaf):
+    eaf.add_tier('overlap')
+    for (beg, end) in overlaps:
+        if args.debug:
+            print("Adding interval {0} - {1} to overlap tier"
+                  .format(beg, end))
+        eaf.add_annotation('overlap', beg, end)
+
+def add_noise_tier(eaf):
+    eaf.add_linguistic_type('noise-lt')
+
+    if args.noise_tier_cv:
+        if not Path(args.noise_tier_cv).is_file():
+            print("WARN: the specified noise CV file '{0}' does not exist",
+                  args.noise_tier_cv)
+        else:
+            noise_cv = read_noise_cv(args.noise_tier_cv)
+            if noise_cv:
+                eaf.add_controlled_vocabulary('noise-cv')
+                eaf.add_cv_description('noise-cv', 'lit',
+                                       description='triukšmų žodynas')
+
+                for i, cve in enumerate(noise_cv):
+                    eaf.add_cv_entry('noise-cv', ('cveid' + str(i)),
+                                     [(cve['name'], 'lit', cve['desc'])])
+
+                    (eaf.get_parameters_for_linguistic_type('noise-lt')
+                     ['CONTROLLED_VOCABULARY_REF']) = 'noise-cv'
+
+    eaf.add_tier('noise', ling='noise-lt', language='und')
+
 
 def create_eaf():
     eaf = Eaf(author=args.author)
+
+    eaf.add_language('und',
+                     'http://cdb.iso.org/lg/CDB-00130975-001',
+                     'undetermined (und)')
+
+    eaf.add_language('lit',
+                     'http://cdb.iso.org/lg/CDB-00138562-001',
+                     'Lithuanian (lit)')
 
     if args.link_media:
         if args.orig_media:
@@ -539,7 +595,7 @@ def create_eaf():
 
 
     for sid in speech:
-        eaf.add_tier(sid)
+        eaf.add_tier(sid, language='lit')
 
         if args.annotator:
             eaf.get_parameters_for_tier(sid)['ANNOTATOR'] = args.annotator
@@ -549,21 +605,15 @@ def create_eaf():
 
     return eaf
 
-def last_setup(eaf):
 
-    # Eaf() adds it
-    eaf.remove_tier('default')
+def last_setup(eaf):
+    eaf.remove_tier('default') # Eaf() adds it
 
     if args.overlap_tier:
-        eaf.add_tier('overlap')
-        for (beg, end) in overlaps:
-            if args.debug:
-                print("Adding interval {0} - {1} to overlap tier"
-                      .format(beg, end))
-            eaf.add_annotation('overlap', beg, end)
+        add_overlap_tier(eaf)
 
-    # TODO: CV for noise tier
-    eaf.add_tier('noise')
+    if args.noise_tier:
+        add_noise_tier(eaf)
 
 
 
@@ -586,7 +636,6 @@ def convert_lattice_to_eaf():
                         print("INFO: {0} skipping overlaping segment "
                               "{1} - {2}".format(sid, beg, end))
                     continue
-
 
             if segment is None:
                 segment = Segment(*seg, sid)
@@ -639,7 +688,6 @@ def convert_webvtt_to_eaf(filename):
                           "{1} - {2}".format(sid, beg, end))
                 continue
 
-
         if segment is None:
             segment = Segment(*seg)
         elif segment.can_join(*seg):
@@ -661,6 +709,7 @@ def convert_webvtt_to_eaf(filename):
 
     last_setup(eaf)
     eaf.to_file(args.outfile)
+
 
 
 if args.webvtt:
