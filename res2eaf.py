@@ -17,7 +17,7 @@ from datetime import timedelta, datetime, timezone
 __author__ = "Laimonas Vėbra"
 __copyright__ = "Copyright 2024"
 __license__ = "BSD"
-__version__ = "0.1b"
+__version__ = "0.1c"
 
 
 parser = argparse.ArgumentParser(
@@ -427,8 +427,14 @@ class Segment:
     @classmethod
     def overlaping(cls, beg, end):
         for (o_beg, o_end) in overlaps:
-            if ((beg >= o_beg and beg <= o_end) or
-                (end >= o_beg and end <= o_end)):
+            if (
+                    # hit: beg or end in overlap interval
+                    (beg >= o_beg and beg <= o_end) or
+                    (end >= o_beg and end <= o_end)
+                    or
+                    # segment includes overlap interval
+                    (beg < o_beg and end > o_end)
+            ):
                 return True
 
         return False
