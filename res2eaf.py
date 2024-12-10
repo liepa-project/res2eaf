@@ -589,9 +589,10 @@ def create_eaf():
 
     if args.link_media:
         if args.orig_media:
-            eaf.add_linked_file(args.link_media, ex_from=args.orig_media)
+            eaf.add_linked_file(args.link_media, relpath=args.link_media,
+                                ex_from=args.orig_media)
         else:
-            eaf.add_linked_file(args.link_media)
+            eaf.add_linked_file(args.link_media, relpath=args.link_media)
 
 
     for sid in speech:
