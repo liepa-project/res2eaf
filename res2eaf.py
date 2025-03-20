@@ -17,7 +17,7 @@ from datetime import timedelta, datetime, timezone
 __author__ = "Laimonas Vėbra"
 __copyright__ = "Copyright 2024"
 __license__ = "BSD"
-__version__ = "0.1c"
+__version__ = "0.1d"
 
 
 parser = argparse.ArgumentParser(
@@ -615,6 +615,13 @@ def create_eaf():
 
 def last_setup(eaf):
     eaf.remove_tier('default') # Eaf() adds it
+
+    # remove empty tiers
+    for tier in list(eaf.get_tier_names()):
+        if (len(eaf.tiers[tier][0]) == 0):
+            if args.verbose:
+                print("INFO: removing empty tier '{0}'".format(tier))
+            eaf.remove_tier(tier)
 
     if args.overlap_tier:
         add_overlap_tier(eaf)
