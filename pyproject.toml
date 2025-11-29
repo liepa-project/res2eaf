@@ -1,0 +1,9 @@
+[project]
+name = "res2eaf"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "prettytable>=3.17.0",
+    "pympi-ling>=1.71",
+    "webvtt-py>=0.5.1",
+]
