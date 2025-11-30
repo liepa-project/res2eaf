@@ -1,6 +1,6 @@
 # In your calling_script.py
 from io import StringIO
-import res2eaf_lib 
+import lib.res2eaf_lib as res2eaf_lib 
 
 config=res2eaf_lib.Res2EafConfig()
 config.join_segments=True

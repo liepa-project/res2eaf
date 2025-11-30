@@ -7,7 +7,7 @@ import string
 import argparse
 
 # from res2eaf_lib import Segment, Stats
-import res2eaf_lib
+import lib.res2eaf_lib as res2eaf_lib
 # import webvtt
 from pympi import Eaf
 from pathlib import Path
