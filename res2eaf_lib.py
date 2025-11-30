@@ -506,7 +506,7 @@ def quarts_in_seconds(quarts):
     else:
         return list(map(lambda q: q/1000, quarts))
 
-def parse_lat_content(lat_content:StringIO, config: Res2EafConfig):
+def parse_lat_content_initiate(lat_content:StringIO, config: Res2EafConfig):
     """
     ****************************************
     """
@@ -641,4 +641,51 @@ def parse_lat_content(lat_content:StringIO, config: Res2EafConfig):
         else:
             print("WARN: Line '{0}' doesn't match segment format"
                   .format(lineno, line))
-    return (speech, speech_blocks, overlaps)
+    if config.debug:
+        print("Overlaps ({0}) before cleanup:".format(len(overlaps)))
+        for overlap in overlaps:
+            print(overlap)
+        print()
+    return (speech, speech_blocks, overlaps, sid)
+
+def fix_overlaps(overlaps, config:Res2EafConfig):
+    # fix overlaps (remove inclusions, merge overlaping)
+    i = 0; _len = len(overlaps)
+    while i < _len:
+        (beg1, end1) = overlaps[i]
+
+        j = 0
+        while j < _len:
+            (beg2, end2) = overlaps[j]
+            if i != j:
+                if (beg1 >= beg2) and (end1 <= end2):
+                    if config.debug:
+                        print("inclusive overlap: {0} in {1}; removing {0}"
+                            .format(overlaps[i], overlaps[j]))
+                    overlaps.pop(i)
+                    i -= 1; _len -= 1
+                    break
+
+                elif (beg1 >= beg2) and (beg1 <= end2) and (end1 > end2):
+                    if config.debug:
+                        print("extending overlap: {0} by {1}; "
+                            "removing {1}, extending: {0} -> {2}"
+                            .format(overlaps[j], overlaps[i], (beg2, end1)))
+                    overlaps[j] = (beg2, end1)
+                    overlaps.pop(i)
+                    i -= 1; _len -= 1
+                    break
+            j += 1
+        i += 1
+
+    if config.debug:
+        print("\nOverlaps ({0}) after cleanup:".format(len(overlaps)))
+        for overlap in overlaps:
+            print(overlap)
+        print()
+    return overlaps
+
+def parse_lat_content(lat_content:StringIO, config: Res2EafConfig):
+    (speech, speech_blocks, overlaps, sid)=parse_lat_content_initiate(lat_content, config=config)
+    overlaps=fix_overlaps(overlaps=overlaps, config=config)
+    return (speech, speech_blocks, overlaps, sid)

@@ -126,50 +126,7 @@ if (args.webvtt and not Path(args.webvtt).is_file()):
 
 
 with open(args.lattice, 'r', encoding='utf-8') as lat_file:
-    (speech, speech_blocks, overlaps)=res2eaf_lib.parse_lat_content(lat_file, config=config)
-
-
-
-if args.debug:
-    print("Overlaps ({0}) before cleanup:".format(len(overlaps)))
-    for overlap in overlaps:
-        print(overlap)
-    print()
-
-# fix overlaps (remove inclusions, merge overlaping)
-i = 0; _len = len(overlaps)
-while i < _len:
-    (beg1, end1) = overlaps[i]
-
-    j = 0
-    while j < _len:
-        (beg2, end2) = overlaps[j]
-        if i != j:
-            if (beg1 >= beg2) and (end1 <= end2):
-                if args.debug:
-                    print("inclusive overlap: {0} in {1}; removing {0}"
-                          .format(overlaps[i], overlaps[j]))
-                overlaps.pop(i)
-                i -= 1; _len -= 1
-                break
-
-            elif (beg1 >= beg2) and (beg1 <= end2) and (end1 > end2):
-                if args.debug:
-                    print("extending overlap: {0} by {1}; "
-                          "removing {1}, extending: {0} -> {2}"
-                          .format(overlaps[j], overlaps[i], (beg2, end1)))
-                overlaps[j] = (beg2, end1)
-                overlaps.pop(i)
-                i -= 1; _len -= 1
-                break
-        j += 1
-    i += 1
-
-if args.debug:
-    print("\nOverlaps ({0}) after cleanup:".format(len(overlaps)))
-    for overlap in overlaps:
-        print(overlap)
-    print()
+    (speech, speech_blocks, overlaps, sid)=res2eaf_lib.parse_lat_content(lat_file, config=config)
 
 
 
