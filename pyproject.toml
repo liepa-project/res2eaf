@@ -10,5 +10,4 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["lib*"]
-exclude = ["tests*"]
+where=["./lib"]
