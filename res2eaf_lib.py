@@ -331,7 +331,7 @@ def convert_webvtt_to_eaf(filename, sid, config: Res2EafConfig,  speech_blocks):
 
     
 
-def create_eaf(config: Res2EafConfig, speech):
+def create_eaf(config: Res2EafConfig, speech) -> Eaf:
     eaf = Eaf(author=config.author)
 
     eaf.add_language('und',
@@ -362,7 +362,12 @@ def create_eaf(config: Res2EafConfig, speech):
     return eaf
 
 
-def convert_lattice_to_eaf(speech_blocks, config: Res2EafConfig, speech, overlaps):
+def convert_lattice_to_eaf(speech_blocks, config: Res2EafConfig, speech, overlaps) -> str:
+    eaf_obj=convert_lattice_to_eaf_obj(speech_blocks, config=config, speech=speech,overlaps=overlaps)
+    eaf_obj.to_file(config.outfile)
+    return config.outfile
+
+def convert_lattice_to_eaf_obj(speech_blocks, config: Res2EafConfig, speech, overlaps)->Eaf:
     """
     ***************************************************************
     """
@@ -406,7 +411,8 @@ def convert_lattice_to_eaf(speech_blocks, config: Res2EafConfig, speech, overlap
             segment = None
 
     last_setup(eaf, config=config, overlaps=overlaps)
-    eaf.to_file(config.outfile)
+    return eaf
+    
 
 
 def last_setup(eaf, config: Res2EafConfig, overlaps):
@@ -427,6 +433,7 @@ def last_setup(eaf, config: Res2EafConfig, overlaps):
 
     if config.noise_tier:
         add_noise_tier(eaf, config=config)
+        
 
 
 def add_overlap_tier(eaf, config: Res2EafConfig, overlaps):
