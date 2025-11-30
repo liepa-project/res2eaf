@@ -646,7 +646,7 @@ def parse_lat_content_initiate(lat_content:StringIO, config: Res2EafConfig):
                               .format(overlap_beg, overlap_end))
 
         else:
-            print("WARN: Line '{0}' doesn't match segment format"
+            print("WARN: Line '{0}' doesn't match segment format: {1}"
                   .format(lineno, line))
     if config.debug:
         print("Overlaps ({0}) before cleanup:".format(len(overlaps)))
