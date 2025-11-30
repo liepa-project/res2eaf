@@ -1,3 +1,8 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
 [project]
 name = "res2eaf"
 version = "0.1.0"
@@ -9,5 +14,9 @@ dependencies = [
     "webvtt-py>=0.5.1",
 ]
 
+[project.scripts]
+res2eaf = "res2eaf.__main__:main"
+
+
 [tool.setuptools.packages.find]
-where=["./lib"]
+where=["./src"]

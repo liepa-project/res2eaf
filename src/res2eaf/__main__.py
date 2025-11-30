@@ -6,12 +6,12 @@ import re
 import string
 import argparse
 
-# from res2eaf_lib import Segment, Stats
-import lib.res2eaf_lib as res2eaf_lib
+
 # import webvtt
 from pympi import Eaf
 from pathlib import Path
 from prettytable import PrettyTable
+from res2eaf import res2eaf_lib
 
 
 __author__ = "Laimonas Vėbra"
@@ -106,78 +106,81 @@ group.add_argument('--noise-tier-cv', metavar='F_CSV', default='./noise_cv.csv',
                    'for noise tier')
 
 
-args = parser.parse_args()
-args_dict = vars(args)
-print(f"**Parsed Arguments (Dict):** {args_dict}")
+def main():
 
+    args = parser.parse_args()
+    args_dict = vars(args)
+    print(f"**Parsed Arguments (Dict):** {args_dict}")
 
-config = res2eaf_lib.Res2EafConfig.from_kwargs(**args_dict)
+    config = res2eaf_lib.Res2EafConfig.from_kwargs(**args_dict)
 
-if not Path(args.lattice).is_file():
-    print("The specified lattice file '{0}' does not exist"
-          .format(args.lattice))
-    sys.exit(1)
+    if not Path(args.lattice).is_file():
+        print("The specified lattice file '{0}' does not exist"
+            .format(args.lattice))
+        sys.exit(1)
 
-if (args.webvtt and not Path(args.webvtt).is_file()):
-    print("The specified webvtt file '{0}' does not exist"
-          .format(args.webvtt))
-    sys.exit(1)
-
-
-
-with open(args.lattice, 'r', encoding='utf-8') as lat_file:
-    (speech, speech_blocks, overlaps, sid)=res2eaf_lib.parse_lat_content(lat_file, config=config)
+    if (args.webvtt and not Path(args.webvtt).is_file()):
+        print("The specified webvtt file '{0}' does not exist"
+            .format(args.webvtt))
+        sys.exit(1)
 
 
 
-if args.webvtt:
-    res2eaf_lib.convert_webvtt_to_eaf(args.webvtt, sid=sid, config=config, speech_blocks=speech_blocks)
-else:
-    res2eaf_lib.convert_lattice_to_eaf(speech_blocks, config=config, speech=speech,overlaps=overlaps)
+    with open(args.lattice, 'r', encoding='utf-8') as lat_file:
+        (speech, speech_blocks, overlaps, sid)=res2eaf_lib.parse_lat_content(lat_file, config=config)
 
 
-res2eaf_lib.Stats.collect()
 
-table_totals = PrettyTable()
-table_totals.align = "r"
-table_totals.float_format = '0.2'
-
-table_totals.field_names = [
-    "Tiers", "Segs", "Single", "Joined", "Comb.of", "Duration"]
-table_totals.add_row([
-    len(res2eaf_lib.Stats.segs), res2eaf_lib.Stats.total_seg, res2eaf_lib.Stats.total_seg_single,
-    res2eaf_lib.Stats.total_seg_joined, res2eaf_lib.Stats.total_seg_combof,
-    res2eaf_lib.ms_to_ts(res2eaf_lib.Stats.total_len)])
-
-print("Total:")
-print(table_totals.get_string())
+    if args.webvtt:
+        res2eaf_lib.convert_webvtt_to_eaf(args.webvtt, sid=sid, config=config, speech_blocks=speech_blocks)
+    else:
+        res2eaf_lib.convert_lattice_to_eaf(speech_blocks, config=config, speech=speech,overlaps=overlaps)
 
 
-table_by_tier = PrettyTable()
-table_by_tier.field_names = [
-    "Tier", "Segs", "Single", "Joined", "Comb.of", "Duration",
-    "Min", "Avg", "Max", "Q25%", "Q50%", "Q75%"]
+    res2eaf_lib.Stats.collect()
 
-table_by_tier.align = "r"
-table_by_tier.float_format = '0.2'
-table_by_tier.sortby = "Duration"
+    table_totals = PrettyTable()
+    table_totals.align = "r"
+    table_totals.float_format = '0.2'
 
-for tier in res2eaf_lib.Stats.segs:
-    seg = res2eaf_lib.Stats.segs[tier]
-    table_by_tier.add_row([
-        tier, len(seg['data']), seg['single_cnt'], seg['joined_cnt'],
-        seg['combof_cnt'], res2eaf_lib.ms_to_ts(seg['sum_len']), seg['min_len']/1000,
-        seg['avg_len']/1000, seg['max_len']/1000,
-        *res2eaf_lib.quarts_in_seconds(seg['len_quarts'])])
+    table_totals.field_names = [
+        "Tiers", "Segs", "Single", "Joined", "Comb.of", "Duration"]
+    table_totals.add_row([
+        len(res2eaf_lib.Stats.segs), res2eaf_lib.Stats.total_seg, res2eaf_lib.Stats.total_seg_single,
+        res2eaf_lib.Stats.total_seg_joined, res2eaf_lib.Stats.total_seg_combof,
+        res2eaf_lib.ms_to_ts(res2eaf_lib.Stats.total_len)])
 
-print("By Tier:")
-print(table_by_tier.get_string())
+    print("Total:")
+    print(table_totals.get_string())
 
-# print("\n\t{0} intervals/gaps between segments, total length: {1:.1f} s"
-#       "\n\tLengths (ms): min: {2}, max: {3}, avg: {4:.0f}, "
-#       "quart.: 25%: {5:.0f}, 50%: {6:.0f}, 75%: {7:.0f}"
-#       .format(
-#           len(Stats.gaps), Stats.gap_sum_len/1000,
-#           Stats.gap_min_len, Stats.gap_max_len, Stats.gap_avg_len,
-#           Stats.gap_quarts[0], Stats.gap_quarts[1], Stats.gap_quarts[2]))
 
+    table_by_tier = PrettyTable()
+    table_by_tier.field_names = [
+        "Tier", "Segs", "Single", "Joined", "Comb.of", "Duration",
+        "Min", "Avg", "Max", "Q25%", "Q50%", "Q75%"]
+
+    table_by_tier.align = "r"
+    table_by_tier.float_format = '0.2'
+    table_by_tier.sortby = "Duration"
+
+    for tier in res2eaf_lib.Stats.segs:
+        seg = res2eaf_lib.Stats.segs[tier]
+        table_by_tier.add_row([
+            tier, len(seg['data']), seg['single_cnt'], seg['joined_cnt'],
+            seg['combof_cnt'], res2eaf_lib.ms_to_ts(seg['sum_len']), seg['min_len']/1000,
+            seg['avg_len']/1000, seg['max_len']/1000,
+            *res2eaf_lib.quarts_in_seconds(seg['len_quarts'])])
+
+    print("By Tier:")
+    print(table_by_tier.get_string())
+
+    # print("\n\t{0} intervals/gaps between segments, total length: {1:.1f} s"
+    #       "\n\tLengths (ms): min: {2}, max: {3}, avg: {4:.0f}, "
+    #       "quart.: 25%: {5:.0f}, 50%: {6:.0f}, 75%: {7:.0f}"
+    #       .format(
+    #           len(Stats.gaps), Stats.gap_sum_len/1000,
+    #           Stats.gap_min_len, Stats.gap_max_len, Stats.gap_avg_len,
+    #           Stats.gap_quarts[0], Stats.gap_quarts[1], Stats.gap_quarts[2]))
+
+if __name__ == "__main__":
+    main()
